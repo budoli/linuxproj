@@ -1,70 +1,61 @@
 "use strict";
 
-const fs = require("fs").promises;
+const mysql = require("mysql2");
+require("dotenv").config();
 
+// MySQL 데이터베이스 연결 설정
+const connection = mysql.createConnection({
+  host: process.env.AWS_RDS_HOST,
+  user: process.env.AWS_RDS_USER,
+  password: process.env.AWS_RDS_PASSWORD,
+  database: process.env.AWS_RDS_DB,
+});
 
-
-// 유저 저장 
 class UserStorage {
 
-    // 로그인 데이터를 getUserInfo 매서드로 보내주기
-    static #getUserInfo(data, id) {
-        const users = JSON.parse(data);
-        const index = users.id.indexOf(id);
-        const userInfo = Object.keys(users).reduce((newUser, info) => {
-            newUser[info] = users[info][index];
-            return newUser;
-        }, {});
-
-    return userInfo;
+    // 로그인 데이터를 getUserInfo 메서드로 보내기
+    static #getUserInfo(rows, id) {
+        const user = rows.find(row => row.id === id);
+        return user ? user : null;
     }
 
-
-    static #getUsers(data, isAll, fields) {
-        const users = JSON.parse(data);
-        if (isAll) return users;
-
-        const newUsers = fields.reduce((newUsers, field) => {
-            if (users.hasOwnProperty(field)) {
-                newUsers[field] = users[field];
-            }
-            return newUsers;
-        }, {});
-        return newUsers;
-    }
-
-    static getUsers(isAll, ...fields) {
-        return fs
-        .readFile("./src/databases/users.json")
-        .then((data) => {
-            return this.#getUsers(data, isAll, fields); 
-        })
-        .catch(console.error);
-    }
-
-
-    // 로그인
+    // 사용자 정보 조회
     static getUsersInfo(id) {
-        return fs
-        .readFile("./src/databases/users.json")
-        .then((data) => {
-            return this.#getUserInfo(data, id); 
-        })
-        .catch(console.error);
+        return new Promise((resolve, reject) => {
+            const query = 'SELECT * FROM users WHERE id = ?';
+            connection.execute(query, [id], (err, rows) => {
+                if (err) {
+                    reject(err);
+                } else {
+                    const userInfo = this.#getUserInfo(rows, id);
+                    resolve(userInfo);
+                }
+            });
+        });
     }
-    
+
     // 회원 가입
     static async save(userInfo) {
-        const users = await this.getUsers(true);
-        if (users.id.includes(userInfo.id)) {   
-            throw 'The ID already exists.';
-        }
-        users.id.push(userInfo.id);
-        users.name.push(userInfo.name);
-        users.psword.push(userInfo.psword);
-        fs.writeFile("./src/databases/users.json", JSON.stringify(users)); 
-        return { success: true };
-        
+        return new Promise((resolve, reject) => {
+            // 기존에 같은 id가 있는지 확인
+            const checkQuery = 'SELECT * FROM users WHERE id = ?';
+            connection.execute(checkQuery, [userInfo.id], (err, rows) => {
+                if (err) {
+                    reject(err);
+                } else if (rows.length > 0) {  // id가 이미 존재하는 경우
+                    reject('The ID already exists.');
+                } else {
+                    const insertQuery = 'INSERT INTO users (id, name, psword) VALUES (?, ?, ?)';
+                    connection.execute(insertQuery, [userInfo.id, userInfo.name, userInfo.psword], (err, result) => {
+                        if (err) {
+                            reject(err);
+                        } else {
+                            resolve({ success: true });
+                        }
+                    });
+                }
+            });
+        });
     }
 }
 

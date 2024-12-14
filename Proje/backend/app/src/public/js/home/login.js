@@ -22,7 +22,7 @@ const id = document.querySelector("#id"),
         .then((res) => res.json())
         .then((res) => {
             if (res.success) {
-                location.href = "/"; // 로그인 성공시 원래 사이트로 돌아가기
+                location.href = "/login"; // 로그인 성공시 원래 사이트로 돌아가기
             } else {
                 alert(res.msg);
             }

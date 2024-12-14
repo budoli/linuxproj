@@ -6,11 +6,12 @@ exports.uploadImage = (req, res) => {
   }
   res.json({
     message: '이미지가 성공적으로 업로드되었습니다.',
-    filename: req.file.filename
+    filename: req.file.filename,
+    redirectUrl: '/login'
   });
 };
 
 exports.renderForm = (req, res) => {
-  res.sendFile(path.join(__dirname, "../view/index.ejs"));
+  res.sendFile(path.join(__dirname, "../view/login.ejs"));
 };
 
